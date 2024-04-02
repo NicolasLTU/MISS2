@@ -7,7 +7,7 @@ import signal
 import subprocess
 import time
 
-import solar_zenith_calculator #Program used to check if it's daytime at KHO (Kjell Henriksen Observatory) or not 
+import solar_zenith_calculator #Program used to check if it's daytime at KHO (Kjell Henriksen Observatory), returns Boolean
 from sunshield_controller import SunShield_CLOSE, SunShield_OPEN, init_serial #Control of the SunShield shutter: Close, Open, Settings for communication to the Serial Port 'COM3'
 
 
