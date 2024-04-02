@@ -42,7 +42,7 @@ def process_image(raw_image):
     return processed_image
 
 try:
-    # Define the path to the raw_temp folder
+    # Define the path to the raw_temp folder - test folder used here:
     temp_folder = r'C:\Users\auroras\.venvMISS2\Test_Imager\raw_temp'
 
     # Get the path to the latestfilenames.txt file
@@ -72,7 +72,7 @@ try:
                 plt.xlabel("Wavelength (nm)")
                 plt.ylabel("Pixel row number")
                 
-                pixel_positions = [10, 110, 210, 310]  # Adjust these according to your pixel format
+                pixel_positions = [10, 110, 210, 310] #adapt to actual pixel-wavelength equivalence
                 wavelengths = [400,500,600,700]
                 plt.xticks(pixel_positions, wavelengths)
                 plt.title(latest_filename)
