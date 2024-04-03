@@ -42,7 +42,10 @@ def ensure_directory_exists(directory):
 def verify_image_integrity(file_path):
     try:
         with Image.open(file_path) as img:
-            img.verify()
+            img.verify() 
+        with Image.open(file_path) as img:
+            img.load()  
+        return True 
     except Exception as e:
         print(f"Corrupted raw PNG detected: {file_path} - {e}")
         return False
