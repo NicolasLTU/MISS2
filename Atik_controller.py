@@ -1,5 +1,5 @@
 '''
-This program controlls all the Atik414EX functions and the way the raw unsigned scaled PNG 16-bit images are saved. Each saved image is the result of the averaging of 4 pictures taken every minute. Nicolas Martinez (UNIS/LTU) 
+This program controls all the Atik414EX functions and the way the raw unsigned scaled PNG 16-bit images are saved. Each saved image is the result of the averaging of 4 pictures taken every minute. Nicolas Martinez (UNIS/LTU) 
 
 '''
 
@@ -45,15 +45,21 @@ def capture_images(PNG_folder, camera=None):
     print("Starting to capture images...")
     exposure_duration = 12  # Exposure time per image, in seconds
 
-    try:
-        current_temperature = camera.get_temperature()
-    except Exception as e:
-        print(f"Could not retrieve temperature: {e}")
-        current_temperature = "Unknown"
 
     images = []
     for i in range(4):  # Adjusted to capture 4 images per minute
-        image_array = camera.take_image(exposure_duration)
+        try:
+            current_temperature = camera.get_temperature()
+        except Exception as e:
+            print(f"Could not retrieve temperature: {e}")
+            current_temperature = "Unknown"
+        try:
+            image_array = camera.take_image(exposure_duration)
+        except Exception as e:
+            print(f'Error capturing image: {e}')
+            camera.disconnect()
+            continue
+        
         scaled_array = (image_array / np.max(image_array)) * (2**16 - 1)
         uint16_array = scaled_array.astype(np.uint16)
         images.append(uint16_array)
