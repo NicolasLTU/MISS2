@@ -13,8 +13,6 @@ from PIL import PngImagePlugin
 import AtikSDK
 
 
-print (AtikSDK.dir())
-
 def monitor_temperature(camera):
     optimal_temperature = 2  # Target temperature, about 20 degrees below ambient temperature
 
