@@ -1,5 +1,5 @@
 '''
-Update the feed on KHO's website with the latest stacked image, complete with a spectral and spatial plot. Nicolas Martinez (UNIS/LTU) 2024
+Update the feed on KHO's website with the latest stacked image, complete with a spectral and spatial plot of the spectrogram and the latest keogram. Nicolas Martinez (UNIS/LTU) 2024
 
 '''
 
@@ -12,6 +12,19 @@ import os
 import time
 import re
 from datetime import datetime, timezone
+import shutil
+
+# Define the base path where the stacked image date directory is located
+image_folder = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG'
+
+# Define the base path where the keogram directory is located
+keogram_folder = r'C:\Users\auroras\.venvMISS2\MISS2\Keograms'
+
+# Define the feed path where the spectrogram is updated (website)
+feed_image_folder = r'C:\Users\auroras\.venvMISS2\MISS2\Website_Spectrogram_Feed'
+
+# Define the feed path where the keogram is updated (website)
+feed_keogram_folder = r'C:\Users\auroras\.venvMISS2\MISS2\Website_Keogram_Feed'
 
 # Function to read PNG file
 def read_png(filename):
@@ -48,11 +61,11 @@ def process_image(raw_image):
 def normalise(data):
     return (data - np.min(data)) / (np.max(data) - np.min(data))
 
-# Fetch the path to the latest image
-def get_latest_image_path(base_folder):
+# Retrieve the path to the latest stacked image
+def get_latest_image_path(image_folder):
     # Today's date in UTC in YYYY/MM/DD format
     today_path = datetime.now(timezone.utc).strftime("%Y/%m/%d")
-    full_path = os.path.join(base_folder, today_path)
+    full_path = os.path.join(image_folder, today_path)
     if os.path.exists(full_path):
         # Define a regex pattern that matches the file naming convention
         pattern = r'MISS2-\d{8}-\d{6}\.png'
@@ -64,17 +77,30 @@ def get_latest_image_path(base_folder):
             return os.path.join(full_path, latest_file) #return full path to latest file
     return None
 
-try:
-    # Define the base path where the stacked image date directory is located
-    base_folder = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG'
+# Retrieve the path to the latest keogram
+def get_latest_keogram_path(keogram_folder):
+    # Today's date in UTC in YYYY/MM/DD format
+    today_path = datetime.now(timezone.utc).strftime("%Y/%m/%d")
+    full_path = os.path.join(keogram_folder, today_path)
+    if os.path.exists(full_path):
+        # Define a regex pattern that matches the file naming convention
+        pattern = r'keogram-MISS2-\d{8}\.png'
+        all_files = [f for f in os.listdir(full_path) if re.match(pattern, f)]
+        if all_files:
+            # Sort files by name, latest date and time comes last
+            all_files.sort()
+            latest_file = all_files[-1] #last of all files
+            return os.path.join(full_path, latest_file) #return full path to latest file
+    return None
 
-    # Define the feed path where the processed spectrogram is updated (website)
-    feed_folder = r'C:\Users\auroras\.venvMISS2\MISS2\Website_Data_Feed'
+
+try:
 
     while True:
-        # Get the latest image file
-        latest_image_file = get_latest_image_path(base_folder)
-        
+        # Get the latest image and keogram files
+        latest_image_file = get_latest_image_path(image_folder)
+        latest_keogram_file = get_latest_keogram_path(keogram_folder)
+
         if latest_image_file:
             # Read the PNG file
             image_data = read_png(latest_image_file)
@@ -126,17 +152,33 @@ try:
             # Tight layout to ensure no overlap
             plt.tight_layout()
 
+            # Clear all existing files in the spectrogram feed folder
+            for file in os.listdir(feed_image_folder):
+                file_path = os.path.join(feed_image_folder, file)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
 
             # Save the plot directly to a file
-            processed_image_path = os.path.join(feed_folder, os.path.basename(latest_image_file)) #Set corresponding wavelength values (to be determined)
+            processed_image_path = os.path.join(feed_image_folder, os.path.basename(latest_image_file))
             plt.savefig(processed_image_path, format='png', bbox_inches='tight')
+            print ('Live spectrogram update was successful.')
 
-            print("Processed image saved successfully: ", processed_image_path)
-        else:
-            print("No new images found in today's date directory.")
+        # Inside the loop where the keogram update is performed
+        if latest_keogram_file:
+            # Clear all existing files in the keogram feed folder
+            for file in os.listdir(feed_keogram_folder):
+                file_path = os.path.join(feed_keogram_folder, file)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            
+            # Copy the latest keogram file to the feed folder
+            keogram_update_path = os.path.join(feed_keogram_folder, os.path.basename(latest_keogram_file))
+            shutil.copy2(latest_keogram_file, keogram_update_path)
+            print("Live keogram update was successful")
 
         # Wait for one minute before processing the next image
         time.sleep(30)
 
 except Exception as e:
     print(f"An error occurred: {e}")
+
