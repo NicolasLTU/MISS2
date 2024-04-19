@@ -13,8 +13,6 @@ from solar_zenith_calculator import it_is_daytime #Program used to check if it's
 from sunshield_controller import SunShield_CLOSE, SunShield_OPEN, init_serial #Control of the SunShield shutter: Close, Open, Settings for communication to the Serial Port 'COM3'
 
 #from fakezenith import it_is_daytime2 #Test the Atik responsiveness during switch from night to day time.
-
-
 #import AtikSDK
 
 def stop_processes(processes, timeout=5):
@@ -56,7 +54,8 @@ except serial.SerialException as e:
     processes.append(rgb_column_process)
     average_png_process = subprocess.Popen(["python", r"C:\Users\auroras\.venvMISS2\MISS2\MISS2_Software\average_PNG_maker.py"])
     processes.append(average_png_process)
-
+    image_analyser_process = subprocess.Popen(["python", r"C:\Users\auroras\.venvMISS2\MISS2\MISS2_Software\image_analyser.py"])
+    processes.append(image_analyser_process)
     image_capture_process = None  # Track the Atik_controller.py process
 
     try:
