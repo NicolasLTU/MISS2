@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG' # Directory of the PNG (16-bit) images taken by MISS2
 output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns' # Directory where the 8-bit RGB-columns are saved
 
-# Column where the centre of brightest emission line (to be identified experimentally)
+# Column where the centre of brightest emission line is located (to be identified experimentally)
 #column_428 = 159
 #column_558 = 800
 #column_630 = 1000
