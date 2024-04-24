@@ -11,26 +11,24 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from PIL import Image
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 #spectro_path = r'C:\Users\auroras\.venvMISS2\Test_Imager\raw_temp' # Directory of the PNG (16-bit) images taken by MISS2
 
 spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG' # Directory of the PNG (16-bit) images taken by MISS2
 output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns' # Directory where the 8-bit RGB-columns are saved
 
-# Column where the centre of brightest emission line is located (to be identified experimentally)
-#column_428 = 159
-#column_558 = 800
-#column_630 = 1000
+#Column where the centre of brightest emission line (to be identified experimentally)
+column_428 = 248
+column_558 = 511
+column_630 = 666
 
-#test columns
-column_428 = 100
-column_558 = 200
-column_630 = 220
 
 #Columns marking the north and south lines of horizon respectively (to be determined experimentally)
 north_col = 267
 south_col = 70
+
+processed_images = set()  # To keep track of processed images
 
 
 # Ensure directory exist before trying to open it or save RGB
@@ -120,7 +118,11 @@ def create_rgb_columns():
 
     matching_files = [f for f in os.listdir(input_folder) if f.startswith("MISS2-") and f.endswith(".png") and f <= current_time_UT.strftime("MISS2-%Y%m%d-%H%M%S.png")]
 
+
     for filename in matching_files:
+        if filename in processed_images:
+            continue
+
         png_file_path = os.path.join(input_folder, filename)
 
         # Check each image's integrity. Skip processing if the image is corrupted.
@@ -128,7 +130,7 @@ def create_rgb_columns():
             print(f"Skipping corrupted image: {filename}")
             continue  # Skip this iteration and move to the next file
 
-        spectro_data = read_png(png_file_path)
+        #spectro_data = read_png(png_file_path)
         RGB_image = PNG_to_RGB(png_file_path, column_630, column_558, column_428)
         RGB_pil_image = Image.fromarray(RGB_image.astype('uint8'))
         resized_RGB_image = RGB_pil_image.resize((1, 300), Image.Resampling.LANCZOS)
@@ -139,10 +141,12 @@ def create_rgb_columns():
 
 
         resized_RGB_image.save(output_filename_path)
-        #print(f"Saved RGB column image: {output_filename}")
+        print(f"Saved RGB column image: {output_filename}")
 
-
+        # Add the processed image to the set of processed images
+        processed_images.add(filename)
 
 while True:
     create_rgb_columns()
-    time.sleep(30)
+    
+    time.sleep(60)
