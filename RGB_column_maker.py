@@ -11,9 +11,8 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from PIL import Image
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
-#spectro_path = r'C:\Users\auroras\.venvMISS2\Test_Imager\raw_temp' # Directory of the PNG (16-bit) images taken by MISS2
 
 spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG' # Directory of the PNG (16-bit) images taken by MISS2
 output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns' # Directory where the 8-bit RGB-columns are saved
@@ -110,7 +109,17 @@ def PNG_to_RGB (spectro_data, column_630, column_558, column_428):
     return RGB_image
 
 def create_rgb_columns():
+    global processed_images # Make the variable global
+
     current_time_UT = datetime.now(timezone.utc)
+    current_day = current_time_UT.day #Initialise with current day
+
+    if current_time_UT.day != current_day:
+        processed_images.clear() 
+        current_day = current_time_UT.day  # Update the current day
+
+
+    current_day = datetime.now().day  # Initialize with the current day
     input_folder = os.path.join(spectro_path, current_time_UT.strftime("%Y/%m/%d"))
     output_folder = os.path.join(output_folder_base, current_time_UT.strftime("%Y/%m/%d"))
     ensure_directory_exists(input_folder)
@@ -148,5 +157,7 @@ def create_rgb_columns():
 
 while True:
     create_rgb_columns()
+    
+    time.sleep(60) # One update per minute
     
     time.sleep(60)
