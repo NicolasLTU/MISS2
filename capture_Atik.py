@@ -11,9 +11,9 @@ import AtikSDK
 import time
 
 camera = AtikSDK.AtikSDKCamera() 
-exposure_duration = 14  # Exposure time per image, in seconds
+exposure_duration = 12  # Exposure time per image, in seconds
 optimal_temperature = 2 # Optimal Temperature for cooling
-
+imaging_cadence = 15 # Capture images every X seconds
 camera.connect()
 
 def monitor_temperature(camera):
@@ -37,12 +37,16 @@ def capture_images(temp_folder, camera):
 
     try:
         while True:
+            current_time = datetime.datetime.now(datetime.timezone.utc)
+            
+            # Check time to capture images only at fixed time instants
+            if (current_time.second % imaging_cadence != 0):
+                time.sleep(0.5) # Sleep a bit before checking time again
+                continue
+                
             # Capture an image with the specified exposure time
             image_array = camera.take_image(exposure_duration)
-
-            # Scale the pixel values to the range [0, 2^16 - 1] (16-bit)
-            scaled_array = (image_array / np.max(image_array)) * (2**16 - 1)
-            uint16_array = scaled_array.astype(np.uint16)
+            uint16_array = image_array.astype(np.uint16)
 
             # Retrieve the current temperature
             try:
@@ -59,8 +63,6 @@ def capture_images(temp_folder, camera):
                 current_temperature = "Unknown"
 
             # Save the image with metadata
-            current_time = datetime.datetime.now(datetime.timezone.utc)
-            timestamp = current_time.strftime("%Y%m%d-%H%M%S")
             image_path = os.path.join(temp_folder, f"MISS2-{timestamp}.png")
 
             metadata = PngImagePlugin.PngInfo()
