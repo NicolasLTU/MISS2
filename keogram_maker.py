@@ -58,7 +58,7 @@ def add_rgb_columns(keogram, base_dir, last_processed_minute):
         return keogram, last_processed_minute
 
     # Iteration only over new minutes since the last processed one
-    for minute in range(last_processed_minute, current_minute_of_the_day):
+    for minute in range(last_processed_minute +1, current_minute_of_the_day):
         # Construct the filename for the RGB column image
         timestamp = now_UT.replace(hour=minute // 60, minute=minute % 60, second=0, microsecond=0)
         filename = f"MISS2-{timestamp.strftime('%Y%m%d-%H%M%S')}.png"
@@ -78,7 +78,7 @@ def add_rgb_columns(keogram, base_dir, last_processed_minute):
                 print(f"Error processing {filename}: {e}")
 
     # Fill in missing minutes with black images
-    missing_minutes = set(range(current_minute_of_the_day)) - found_minutes
+    missing_minutes = set(range(last_processed_minute + 1, current_minute_of_the_day)) - found_minutes
     for minute in missing_minutes:
         keogram[:, minute:minute+1, :] = 0  # Black RGB column
 
