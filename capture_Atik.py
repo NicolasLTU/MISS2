@@ -17,8 +17,7 @@ imaging_cadence = 15 # Capture images every X seconds
 camera.connect()
 
 def monitor_temperature(camera):
-    optimal_temperature = 2  # Target temperature, about 20 degrees below ambient temperature with +/- 2 degree margin
-
+    
     try:
         current_temperature = camera.get_temperature()
         print("Current temperature:", current_temperature)
