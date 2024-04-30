@@ -6,7 +6,7 @@ from PIL import Image
 import re
 from collections import defaultdict
 
-def average_images(temp_folder, PNG_folder, raw_PNG_folder):
+def average_images(temp_folder, PNG_folder, raw_PNG_folder, images_per_minute=6): # Based on how many images are saved per minute
     images_by_minute = defaultdict(list)
     filename_regex = re.compile(r'^.+-(\d{8})-(\d{6})\.png$')
 
@@ -19,10 +19,11 @@ def average_images(temp_folder, PNG_folder, raw_PNG_folder):
             minute_key = date_part + '-' + time_part[:4]  # YYYYMMDD-HHMM for grouping
             images_by_minute[minute_key].append(filepath)
 
-    # Process each group of images
+    # Process each group of images only if they form a complete set of X images per minute
     for minute_key, filepaths in images_by_minute.items():
-        sum_img_array = None
-        count = 0
+        if len(filepaths) == images_per_minute:  # Check for a complete set
+            sum_img_array = None
+            count = 0
         for filepath in filepaths:
             try:
                 img = Image.open(filepath)
