@@ -63,6 +63,7 @@ def capture_images(temp_folder, camera):
                 current_temperature = "Unknown"
 
             # Save the image with metadata
+            timestamp = current_time.strftime("%Y%m%d-%H%M%S")
             image_path = os.path.join(temp_folder, f"MISS2-{timestamp}.png")
 
             metadata = PngImagePlugin.PngInfo()
