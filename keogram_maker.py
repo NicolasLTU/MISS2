@@ -84,6 +84,21 @@ def add_rgb_columns(keogram, base_dir, last_processed_minute):
 
     return keogram, current_minute_of_the_day
 
+# Ensure that any pre-existing keogram for today will be loaded and updated
+def load_existing_keogram(output_dir):
+    # Get the current UTC date
+    current_date = datetime.now(timezone.utc).strftime('%Y/%m/%d')
+    keogram_path = os.path.join(output_dir, current_date.replace('/', '\\'), 'keogram-MISS2.png')
+    if os.path.exists(keogram_path):
+        # Load the existing keogram if it exists
+        with Image.open(keogram_path) as img:
+            return np.array(img)
+    else:
+        # Otherwise, initialize a new keogram
+        return np.full((300, 1440, 3), 255, dtype=np.uint8)  # White RGB empty keogram
+
+
+
 def save_keogram(keogram, output_dir):
     # Get the current UTC time
     current_utc_time = datetime.now(timezone.utc)
@@ -119,11 +134,11 @@ def save_keogram(keogram, output_dir):
 # Update the keogram every 5 minutes
 def main():
     last_processed_minute = 0 # Initialise last processed minute
+    keogram = load_existing_keogram(output_dir)  # Load pre-existing keogram or initialise new keogram
 
     while True:  # Start of the infinite loop
         try:
             # Reinitialize the keogram for each update cycle
-            keogram = np.full((num_pixels_y, num_pixels_x, 3), 255, dtype=np.uint8)  # White RGB empty keogram
             updated_keogram, last_processed_minute = add_rgb_columns(keogram, rgb_dir_base, last_processed_minute)
             save_keogram(updated_keogram, output_dir)
             print("Update completed. Waiting 5 minutes for the next update...")
