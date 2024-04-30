@@ -33,8 +33,10 @@ def verify_image_integrity(file_path):
     except Exception as e:
         print(f"Corrupted RGB-column image detected: {file_path} - {e}")
         return False
+    
 
-def add_rgb_columns(keogram, base_dir):
+
+def add_rgb_columns(keogram, base_dir, last_processed_minute):
     
     # Get the current date/hour (UT) in yyyy/mm/dd format
     current_date = datetime.now(timezone.utc).strftime("%Y/%m/%d")
@@ -53,10 +55,10 @@ def add_rgb_columns(keogram, base_dir):
     # Check if the daily directory exists, if not, return the original keogram (no updates)
     if not os.path.exists(today_RGB_dir):
         print(f"No directory found for today's date ({today_RGB_dir}). Skipping update.")
-        return keogram
+        return keogram, last_processed_minute
 
     # Iteration only over new minutes since the last processed one
-    for minute in range(current_minute_of_the_day):
+    for minute in range(last_processed_minute, current_minute_of_the_day):
         # Construct the filename for the RGB column image
         timestamp = now_UT.replace(hour=minute // 60, minute=minute % 60, second=0, microsecond=0)
         filename = f"MISS2-{timestamp.strftime('%Y%m%d-%H%M%S')}.png"
@@ -80,7 +82,7 @@ def add_rgb_columns(keogram, base_dir):
     for minute in missing_minutes:
         keogram[:, minute:minute+1, :] = 0  # Black RGB column
 
-    return keogram
+    return keogram, current_minute_of_the_day
 
 def save_keogram(keogram, output_dir):
     # Get the current UTC time
@@ -116,12 +118,13 @@ def save_keogram(keogram, output_dir):
 
 # Update the keogram every 5 minutes
 def main():
+    last_processed_minute = 0 # Initialise last processed minute
 
     while True:  # Start of the infinite loop
         try:
             # Reinitialize the keogram for each update cycle
             keogram = np.full((num_pixels_y, num_pixels_x, 3), 255, dtype=np.uint8)  # White RGB empty keogram
-            updated_keogram = add_rgb_columns(keogram, rgb_dir_base)
+            updated_keogram, last_processed_minute = add_rgb_columns(keogram, rgb_dir_base, last_processed_minute)
             save_keogram(updated_keogram, output_dir)
             print("Update completed. Waiting 5 minutes for the next update...")
         except Exception as e:
