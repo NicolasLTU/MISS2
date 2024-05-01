@@ -6,7 +6,7 @@ This program uses the RGB image-columns generated every minute using the spectro
 import os
 import numpy as np
 from PIL import Image
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import time
 import matplotlib.pyplot as plt
 
@@ -33,11 +33,8 @@ def verify_image_integrity(file_path):
     except Exception as e:
         print(f"Corrupted RGB-column image detected: {file_path} - {e}")
         return False
-    
-
 
 def add_rgb_columns(keogram, base_dir, last_processed_minute):
-    
     # Get the current date/hour (UT) in yyyy/mm/dd format
     current_date = datetime.now(timezone.utc).strftime("%Y/%m/%d")
 
@@ -55,16 +52,16 @@ def add_rgb_columns(keogram, base_dir, last_processed_minute):
     # Check if the daily directory exists, if not, return the original keogram (no updates)
     if not os.path.exists(today_RGB_dir):
         print(f"No directory found for today's date ({today_RGB_dir}). Skipping update.")
-        return keogram, last_processed_minute
+        return keogram
 
     # Iteration only over new minutes since the last processed one
-    for minute in range(last_processed_minute +1, current_minute_of_the_day):
+    for minute in range(last_processed_minute + 1, current_minute_of_the_day):
         # Construct the filename for the RGB column image
         timestamp = now_UT.replace(hour=minute // 60, minute=minute % 60, second=0, microsecond=0)
         filename = f"MISS2-{timestamp.strftime('%Y%m%d-%H%M%S')}.png"
         file_path = os.path.join(today_RGB_dir, filename)
 
-        # Load RGB column data if file exists AND check ibtegrity of each image
+        # Load RGB column data if file exists AND check integrity of each image
         if os.path.exists(file_path) and verify_image_integrity(file_path):
             try:
                 rgb_data = np.array(Image.open(file_path))
@@ -82,22 +79,41 @@ def add_rgb_columns(keogram, base_dir, last_processed_minute):
     for minute in missing_minutes:
         keogram[:, minute:minute+1, :] = 0  # Black RGB column
 
-    return keogram, current_minute_of_the_day
+    return keogram
 
 # Ensure that any pre-existing keogram for today will be loaded and updated
 def load_existing_keogram(output_dir):
-    # Get the current UTC date
-    current_date = datetime.now(timezone.utc).strftime('%Y/%m/%d')
-    keogram_path = os.path.join(output_dir, current_date.replace('/', '\\'), 'keogram-MISS2.png')
-    if os.path.exists(keogram_path):
-        # Load the existing keogram if it exists
-        with Image.open(keogram_path) as img:
-            return np.array(img)
+    # Get the current UTC time
+    current_utc_time = datetime.now(timezone.utc)
+    
+    # If the current time is before 00:05, load the keogram from the previous day
+    if current_utc_time.hour == 0 and current_utc_time.minute < 5:
+        previous_date = (current_utc_time - timedelta(days=1)).strftime('%Y/%m/%d')
+        keogram_path = os.path.join(output_dir, previous_date.replace('/', '\\'), 'keogram-MISS2.png')
+        if os.path.exists(keogram_path):
+            # Load the existing keogram if it exists
+            with Image.open(keogram_path) as img:
+                keogram = np.array(img)
+                last_processed_minute = 1439  # Last minute of the day
+            return keogram, last_processed_minute
+        else:
+            # Otherwise, initialize a new keogram
+            return np.full((300, 1440, 3), 255, dtype=np.uint8), 0  # White RGB empty keogram and last processed minute as 0
+    
+    # Otherwise, load the keogram for the current day
     else:
-        # Otherwise, initialize a new keogram
-        return np.full((300, 1440, 3), 255, dtype=np.uint8)  # White RGB empty keogram
-
-
+        # Get the current UTC date
+        current_date = current_utc_time.strftime('%Y/%m/%d')
+        keogram_path = os.path.join(output_dir, current_date.replace('/', '\\'), 'keogram-MISS2.png')
+        if os.path.exists(keogram_path):
+            # Load the existing keogram if it exists
+            with Image.open(keogram_path) as img:
+                keogram = np.array(img)
+                last_processed_minute = 1439  # Last minute of the day
+            return keogram, last_processed_minute
+        else:
+            # Otherwise, initialize a new keogram
+            return np.full((300, 1440, 3), 255, dtype=np.uint8), 0  # White RGB empty keogram and last processed minute as 0
 
 def save_keogram(keogram, output_dir):
     # Get the current UTC time
@@ -133,19 +149,29 @@ def save_keogram(keogram, output_dir):
 
 # Update the keogram every 5 minutes
 def main():
-    last_processed_minute = 0 # Initialise last processed minute
-    keogram = load_existing_keogram(output_dir)  # Load pre-existing keogram or initialise new keogram
-
     while True:  # Start of the infinite loop
         try:
-            # Reinitialize the keogram for each update cycle
-            updated_keogram, last_processed_minute = add_rgb_columns(keogram, rgb_dir_base, last_processed_minute)
-            save_keogram(updated_keogram, output_dir)
-            print("Update completed. Waiting 5 minutes for the next update...")
+            # Get the current UTC time
+            current_utc_time = datetime.now(timezone.utc) 
+
+            # Check if it's time for an update (every 5 minutes)
+            if current_utc_time.minute % 5 == 0:
+                # Continue updating the existing keogram
+                keogram, last_processed_minute = load_existing_keogram(output_dir)  # Unpack the returned values correctly
+
+                # Update the keogram
+                keogram = add_rgb_columns(keogram, rgb_dir_base, last_processed_minute)
+                save_keogram(keogram, output_dir)
+                print("Update completed.")
+            else:
+                print("Waiting for the next update...")
+
+            # Wait for 1 minute before the next check
+            time.sleep(60)
+
         except Exception as e:
             print(f"An error occurred: {e}")
 
-        time.sleep(300) #Update the keogram every 5 minutes
-
 if __name__ == "__main__":
     main()
+
