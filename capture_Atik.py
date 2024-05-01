@@ -10,6 +10,9 @@ from PIL import Image, PngImagePlugin
 import AtikSDK
 import time
 
+# Path to the temporary folder where the new captured images will be saved. This folder needs to be created manually 
+PNG_folder = os.path.join(os.path.expanduser("~"), ".venvMISS2/MISS2/Captured_PNG/Temporary_RAW")
+
 camera = AtikSDK.AtikSDKCamera() 
 exposure_duration = 12  # Exposure time per image, in seconds
 optimal_temperature = 2 # Optimal Temperature for cooling
@@ -84,9 +87,6 @@ def capture_images(temp_folder, camera):
         except:
             pass
 
-
-
-PNG_folder = r"C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG\Temporary_RAW"
 
 try:
     capture_images(PNG_folder, camera)
