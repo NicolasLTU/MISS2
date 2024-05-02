@@ -1,5 +1,5 @@
-""" 
-This program is designed to constantly look for new PNG files in the RGB_columns directory and produce (300,1,3) PGN-files (8-bit unsigned integer) out of them. Nicolas Martinez (UNIS/LTU) 2024
+"""
+This program is designed to constantly look for new PNG files in the Captured_PNG directory and produce (300,1,3) PGN-files (8-bit unsigned integer) out of them. Nicolas Martinez (UNIS/LTU) 2024
 
 """
 
@@ -14,20 +14,22 @@ import time
 from datetime import datetime, timezone
 
 
-spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG' # Directory of the PNG (16-bit) images taken by MISS2
-output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns' # Directory where the 8-bit RGB-columns are saved
+# Directory of the PNG (16-bit) images taken by MISS2
+spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG'
 
-#Column where the centre of brightest emission line (to be identified experimentally)
-column_428 = 248
-column_558 = 511
-column_630 = 666
+# Directory where the 8-bit RGB-columns are saved
+output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns'
 
+# Row where the centre of brightest emission line of auroral blue, green and red are to be found. (to be identified experimentally)
+row_428 = 204 # Auroral blue 
+row_558 = 615 # Auroral green
+row_630 = 950 # Auroral red
 
-#Columns marking the north and south lines of horizon respectively (to be determined experimentally)
-north_col = 267
-south_col = 70
+# Columns marking the north and south lines of horizon respectively (to be determined experimentally)
+north_column = 1000
+south_column = 0
 
-processed_images = set()  # To keep track of processed images
+processed_images = set()  # To keep track of already processed images in the date directory
 
 
 # Ensure directory exist before trying to open it or save RGB
@@ -47,7 +49,7 @@ def verify_image_integrity(file_path):
         print(f"Corrupted raw PNG detected: {file_path} - {e}")
         return False
 
-#Read the PNG-images (spectrograms)
+# Read the PNG-images (spectrograms)
 def read_png(filename):
     # Open the PNG image
     with Image.open(filename) as img:
@@ -55,8 +57,8 @@ def read_png(filename):
         raw_data = np.array(img)
     return raw_data
 
-#Subtract background from the RGB images
-def process_image(raw_image):
+# Subtract background from the RGB images
+def process_image(raw_image, dark_frame=None):
     # Apply median filter
     processed_image = signal.medfilt2d(raw_image.astype('float32'))
     # Calculate background
@@ -65,59 +67,53 @@ def process_image(raw_image):
     processed_image = np.maximum(0, processed_image - bg)
     return processed_image
 
-# From the spectrogram, extract, process and average each emission line
-def process_emission_line(spectro_path, emission_column):
+# From the spectrogram, extract, process and average each emission line along rows
+def process_emission_line(spectro_path, emission_row):
     spectro_png = Image.open(spectro_path)
     spectro_array = np.array(spectro_png)
 
-    start_column = max(emission_column - 1 , 0)
-    end_column = min(emission_column +1, spectro_array.shape[1])
+    start_row = max(emission_row - 1, 0)
+    end_row = min(emission_row + 1, spectro_array.shape[0])
 
-    extracted_columns = spectro_array[south_col:north_col, start_column:end_column]
+    extracted_rows = spectro_array[start_row:end_row, south_column:north_column]
 
-    #Process the extracted columns
-    processed_columns = process_image(extracted_columns)
+    # Process the extracted rows
+    processed_rows = process_image(extracted_rows)
 
-    #Average the processed columns to obtain a (1,height) 
-    averaged_column = np.mean(processed_columns, axis=1)
-    # Flatten the columns to one dimension
-    flattened_column = averaged_column.flatten()
+    # Average the processed rows to obtain a (1, width)
+    averaged_row = np.mean(processed_rows, axis=0)
+    # Flatten the rows to one dimension
+    flattened_row = averaged_row.flatten()
 
-    return flattened_column, flattened_column.shape
+    return flattened_row, flattened_row.shape
 
 # Take processed emission lines to create a RGB
-def PNG_to_RGB (spectro_data, column_630, column_558, column_428):
+def PNG_to_RGB (spectro_data, row_630, row_558, row_428):
 
-    #Use processed averaged columns for the making of the RGB-column
-    column_RED, shape_RED = process_emission_line(spectro_data, column_630)
-    column_GREEN, shape_GREEN = process_emission_line(spectro_data, column_558)
-    column_BLUE, shape_BLUE = process_emission_line(spectro_data, column_428)
+    # Use processed averaged rows for the making of the RGB-column
+    row_RED, shape_RED = process_emission_line(spectro_data, row_630)
+    row_GREEN, shape_GREEN = process_emission_line(spectro_data, row_558)
+    row_BLUE, shape_BLUE = process_emission_line(spectro_data, row_428)
 
-    #print("Shape of RED column:", shape_RED)
-    #print("Shape of GREEN column:", shape_GREEN)
-    #print("Shape of BLUE column:", shape_BLUE)
+    # Reshape the rows to have a single channel
+    row_RED = row_RED.reshape(-1, 1)
+    row_GREEN = row_GREEN.reshape(-1, 1)
+    row_BLUE = row_BLUE.reshape(-1, 1)
 
-
-    # Reshape the columns to have a single channel
-    column_RED = column_RED.reshape(-1, 1)
-    column_GREEN = column_GREEN.reshape(-1, 1)
-    column_BLUE = column_BLUE.reshape(-1, 1)
-
-    RGB_image= np.dstack((column_RED, column_GREEN, column_BLUE))
-    #print("Shape of RGB-column:", RGB_image.shape)
+    RGB_image= np.dstack((row_RED, row_GREEN, row_BLUE))  # Using non-experimentally estimated coefficients 1/K for now
+    print("Shape of RGB-row:", RGB_image.shape)
 
     return RGB_image
 
-def create_rgb_columns():
-    global processed_images # Make the variable global
+def create_rgb_rows():
+    global processed_images  # Make the variable global
 
     current_time_UT = datetime.now(timezone.utc)
-    current_day = current_time_UT.day #Initialise with current day
+    current_day = current_time_UT.day  # Initialise with current day
 
     if current_time_UT.day != current_day:
-        processed_images.clear() 
+        processed_images.clear()
         current_day = current_time_UT.day  # Update the current day
-
 
     current_day = datetime.now().day  # Initialize with the current day
     input_folder = os.path.join(spectro_path, current_time_UT.strftime("%Y/%m/%d"))
@@ -125,8 +121,8 @@ def create_rgb_columns():
     ensure_directory_exists(input_folder)
     ensure_directory_exists(output_folder)
 
-    matching_files = [f for f in os.listdir(input_folder) if f.startswith("MISS2-") and f.endswith(".png") and f <= current_time_UT.strftime("MISS2-%Y%m%d-%H%M%S.png")]
-
+    matching_files = [f for f in os.listdir(input_folder) if f.startswith("MISS2-") and f.endswith(".png")
+                      and f <= current_time_UT.strftime("MISS2-%Y%m%d-%H%M%S.png")]
 
     for filename in matching_files:
         if filename in processed_images:
@@ -139,8 +135,8 @@ def create_rgb_columns():
             print(f"Skipping corrupted image: {filename}")
             continue  # Skip this iteration and move to the next file
 
-        #spectro_data = read_png(png_file_path)
-        RGB_image = PNG_to_RGB(png_file_path, column_630, column_558, column_428)
+        # spectro_data = read_png(png_file_path)
+        RGB_image = PNG_to_RGB(png_file_path, row_630, row_558, row_428)
         RGB_pil_image = Image.fromarray(RGB_image.astype('uint8'))
         resized_RGB_image = RGB_pil_image.resize((1, 300), Image.Resampling.LANCZOS)
 
@@ -148,16 +144,13 @@ def create_rgb_columns():
         output_filename = f"{base_filename[:-2]}00.png"  # Replace seconds with '00' and add back the '.png' extension
         output_filename_path = os.path.join(output_folder, output_filename)
 
-
         resized_RGB_image.save(output_filename_path)
-        print(f"Saved RGB column image: {output_filename}")
+        print(f"Saved RGB row image: {output_filename}")
 
         # Add the processed image to the set of processed images
         processed_images.add(filename)
 
 while True:
-    create_rgb_columns()
-    
-    time.sleep(60) # One update per minute
-    
-    time.sleep(60)
+    create_rgb_rows()
+
+    time.sleep(60)  # One update per minute
