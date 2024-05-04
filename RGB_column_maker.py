@@ -1,179 +1,172 @@
-'''
-This program uses the RGB image-columns generated every minute using the spectrograms captured by MISS2 to update a daily keogram. Nicolas Martinez (UNIS/LTU) 2024
+""" 
+This program is designed to constantly look for new PNG files in the RGB_columns directory and produce (300,1,3) PGN-files (8-bit unsigned integer) out of them. Nicolas Martinez (UNIS/LTU) 2024
 
-'''
+"""
 
+import datetime as dt
 import os
+import glob
 import numpy as np
-from PIL import Image
-from datetime import datetime, timezone, timedelta
-import time
 import matplotlib.pyplot as plt
+from scipy import signal
+from PIL import Image
+import time
+from datetime import datetime, timezone
 
-# Base directory where the RGB-columns are saved (yyyy/mm/dd)
-rgb_dir_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns'
 
-# Directory where the keogram are placed (yyyy/mm/dd)
-output_dir = r'C:\Users\auroras\.venvMISS2\MISS2\Keograms'
+spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG' # Directory of the PNG (16-bit) images taken by MISS2
+output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns' # Directory where the 8-bit RGB-columns are saved
 
-# Define dimensions of the keogram
-num_pixels_y = 300  # Number of pixels along the y-axis
-num_minutes = 24 * 60  # Total number of minutes in a day
-num_pixels_x = num_minutes  # Number of pixels along the x-axis
+# Row where the centre of brightest lines of auroral emission are to be found (to be identified experimentally)
+row_428 = 640 #0.46*1391
+row_558 = 849 #0.61*1391
+row_630 = 1068 #0.768*1391
 
-# Initialize an empty keogram with white pixels
-keogram = np.full((num_pixels_y, num_pixels_x, 3), 255, dtype=np.uint8)  # White RGB empty keogram
 
+# Columns marking the north and south lines of horizon respectively (to be determined experimentally)
+north_column = 1000
+south_column = 0
+
+processed_images = set()  # To keep track of processed images
+
+
+# Ensure directory exist before trying to open it or save RGB
+def ensure_directory_exists(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        
 # Routine check of the each image's integrity. Raise an exception if the image is corrupted
 def verify_image_integrity(file_path):
     try:
         with Image.open(file_path) as img:
-            img.verify()  # Verify the integrity of the image
-        return True
+            img.verify() 
+        with Image.open(file_path) as img:
+            img.load()  
+        return True 
     except Exception as e:
-        print(f"Corrupted RGB-column image detected: {file_path} - {e}")
+        print(f"Corrupted raw PNG detected: {file_path} - {e}")
         return False
 
-def add_rgb_columns(keogram, base_dir, last_processed_minute):
-    # Get the current date/hour (UT) in yyyy/mm/dd format
-    current_date = datetime.now(timezone.utc).strftime("%Y/%m/%d")
+# Read the PNG-images (spectrograms)
+def read_png(filename):
+    # Open the PNG image
+    with Image.open(filename) as img:
+        # Convert the image to a numpy array
+        raw_data = np.array(img)
+    return raw_data
 
-    # Construct the directory path for the current date
-    today_RGB_dir = os.path.join(base_dir, current_date.replace('/', '\\'))
+# Subtract background from the RGB images
+def process_image(raw_image):
+    # Apply median filter
+    processed_image = signal.medfilt2d(raw_image.astype('float32'))
+    # Calculate background
+    bg = np.average(processed_image[0:30, 0:30])
+    # Subtract background
+    processed_image = np.maximum(0, processed_image - bg)
+    return processed_image
 
-    # Get the current UTC time
-    now_UT = datetime.now(timezone.utc)
-    # Convert the current time to minutes since midnight (UT)
-    current_minute_of_the_day = now_UT.hour * 60 + now_UT.minute
+# From the spectrogram, extract, process and average each emission line
+def process_emission_line(spectro_path, emission_row):
+    spectro_png = Image.open(spectro_path)
+    spectro_array = np.array(spectro_png)
 
-    # Initialize a set of all minutes in the day to track found minutes
-    found_minutes = set()
+    start_row = max(emission_row - 1 , 0)
+    end_row = min(emission_row +1, spectro_array.shape[0])
 
-    # Check if the daily directory exists, if not, return the original keogram (no updates)
-    if not os.path.exists(today_RGB_dir):
-        print(f"No directory found for today's date ({today_RGB_dir}). Skipping update.")
-        return keogram
+    extracted_rows = spectro_array[start_row:end_row, :]
 
-    # Iteration only over new minutes since the last processed one
-    for minute in range(last_processed_minute + 1, current_minute_of_the_day):
-        # Construct the filename for the RGB column image
-        timestamp = now_UT.replace(hour=minute // 60, minute=minute % 60, second=0, microsecond=0)
-        filename = f"MISS2-{timestamp.strftime('%Y%m%d-%H%M%S')}.png"
-        file_path = os.path.join(today_RGB_dir, filename)
+    # Process the extracted rows
+    processed_rows = process_image(extracted_rows)
 
-        # Load RGB column data if file exists AND check integrity of each image
-        if os.path.exists(file_path) and verify_image_integrity(file_path):
-            try:
-                rgb_data = np.array(Image.open(file_path))
-                # Ensure the RGB data has the correct shape (300, 1, 3)
-                if rgb_data.shape == (num_pixels_y, 1, 3):
-                    keogram[:, minute:minute+1, :] = rgb_data  # Add RGB column to keogram
-                    found_minutes.add(minute)
-                else:
-                    print(f"Skipped {filename} due to incorrect shape: {rgb_data.shape}")
-            except Exception as e:
-                print(f"Error processing {filename}: {e}")
+    # Average the processed rows to obtain a (length, 1) 
+    averaged_row = np.mean(processed_rows, axis=0)
+    # Flatten the rows to one dimension
+    flattened_row = averaged_row.flatten()
 
-        # Fill in missing minutes with black images for minutes more than 4 minutes before "now"
-        missing_minutes = set(range(last_processed_minute + 1, current_minute_of_the_day)) - found_minutes
-        for minute in missing_minutes:
-            # At the condition that the data-minute is more than 4 minutes away from now to prevent false blanks
-            if current_minute_of_the_day - minute > 4:
-                keogram[:, minute:minute+1, :] = np.zeros((num_pixels_y, 1, 3), dtype=np.uint8) 
+    return flattened_row, flattened_row.shape
 
-    return keogram
+# Take processed emission lines to create a RGB
+def PNG_to_RGB (spectro_data, row_630, row_558, row_428):
 
-# Ensure that any pre-existing keogram for today will be loaded and updated
-def load_existing_keogram(output_dir):
-    # Get the current UTC time
-    current_utc_time = datetime.now(timezone.utc)
+    #Use processed averaged rows for the making of the RGB-column
+    column_RED, shape_RED = process_emission_line(spectro_data, row_630)
+    column_GREEN, shape_GREEN = process_emission_line(spectro_data, row_558)
+    column_BLUE, shape_BLUE = process_emission_line(spectro_data, row_428)
+
+    #print("Shape of RED column:", shape_RED)
+    #print("Shape of GREEN column:", shape_GREEN)
+    #print("Shape of BLUE column:", shape_BLUE)
+
+    # Increase the red channel by multiplying it with a factor
+    red_factor = 1.0  # Adjust this factor as needed
+    column_RED *= red_factor
+
+    # Increase the green channel by multiplying it with a factor
+    green_factor = 1.0  # Adjust this factor as needed
+    column_GREEN *= green_factor
+
+    # Increase the blue channel by multiplying it with a factor
+    blue_factor = 1.0  # Adjust this factor as needed
+    column_BLUE *= blue_factor
+
+    # Reshape the columns to have a single channel
+    column_RED = column_RED.reshape(-1, 1)
+    column_GREEN = column_GREEN.reshape(-1, 1)
+    column_BLUE = column_BLUE.reshape(-1, 1)
+
+    RGB_image= np.dstack((column_RED, column_GREEN, column_BLUE))
+    #print("Shape of RGB-column:", RGB_image.shape)
+
+    return RGB_image
+
+def create_rgb_columns():
+    global processed_images # Make the variable global
+
+    current_time_UT = datetime.now(timezone.utc)
+    current_day = current_time_UT.day #Initialise with current day
+
+    if current_time_UT.day != current_day:
+        processed_images.clear() 
+        current_day = current_time_UT.day  # Update the current day
+
+
+    current_day = datetime.now().day  # Initialize with the current day
+    input_folder = os.path.join(spectro_path, current_time_UT.strftime("%Y/%m/%d"))
+    output_folder = os.path.join(output_folder_base, current_time_UT.strftime("%Y/%m/%d"))
+    ensure_directory_exists(input_folder)
+    ensure_directory_exists(output_folder)
+
+    matching_files = [f for f in os.listdir(input_folder) if f.startswith("MISS2-") and f.endswith(".png") and f <= current_time_UT.strftime("MISS2-%Y%m%d-%H%M%S.png")]
+
+
+    for filename in matching_files:
+        if filename in processed_images:
+            continue
+
+        png_file_path = os.path.join(input_folder, filename)
+
+        # Check each image's integrity. Skip processing if the image is corrupted.
+        if not verify_image_integrity(png_file_path):
+            print(f"Skipping corrupted image: {filename}")
+            continue  # Skip this iteration and move to the next file
+
+        #spectro_data = read_png(png_file_path)
+        RGB_image = PNG_to_RGB(png_file_path, row_630, row_558, row_428)
+        RGB_pil_image = Image.fromarray(RGB_image.astype('uint8'))
+        resized_RGB_image = RGB_pil_image.resize((1, 300), Image.Resampling.LANCZOS)
+
+        base_filename = filename[:-4]  # Remove the '.png' extension
+        output_filename = f"{base_filename[:-2]}00.png"  # Replace seconds with '00' and add back the '.png' extension
+        output_filename_path = os.path.join(output_folder, output_filename)
+
+
+        resized_RGB_image.save(output_filename_path)
+        print(f"Saved RGB column image: {output_filename}")
+
+        # Add the processed image to the set of processed images
+        processed_images.add(filename)
+
+while True:
+    create_rgb_columns()
     
-    # If the current time is before 00:05, load the keogram from the previous day
-    if current_utc_time.hour == 0 and current_utc_time.minute < 5:
-        previous_date = (current_utc_time - timedelta(days=1)).strftime('%Y/%m/%d')
-        keogram_path = os.path.join(output_dir, previous_date.replace('/', '\\'), 'keogram-MISS2.png')
-        if os.path.exists(keogram_path):
-            # Load the existing keogram if it exists
-            with Image.open(keogram_path) as img:
-                keogram = np.array(img)
-                last_processed_minute = 1439  # Last minute of the day
-            return keogram, last_processed_minute
-        else:
-            # Otherwise, initialize a new keogram
-            return np.full((300, 1440, 3), 255, dtype=np.uint8), 0  # White RGB empty keogram and last processed minute as 0
-    
-    # Otherwise, load the keogram for the current day
-    else:
-        # Get the current UTC date
-        current_date = current_utc_time.strftime('%Y/%m/%d')
-        keogram_path = os.path.join(output_dir, current_date.replace('/', '\\'), 'keogram-MISS2.png')
-        if os.path.exists(keogram_path):
-            # Load the existing keogram if it exists
-            with Image.open(keogram_path) as img:
-                keogram = np.array(img)
-                last_processed_minute = 1439  # Last minute of the day
-            return keogram, last_processed_minute
-        else:
-            # Otherwise, initialize a new keogram
-            return np.full((300, 1440, 3), 255, dtype=np.uint8), 0  # White RGB empty keogram and last processed minute as 0
-
-def save_keogram(keogram, output_dir):
-    # Get the current UTC time
-    current_utc_time = datetime.now(timezone.utc)
-    # Create the directory path for the current date
-    current_date_dir = os.path.join(output_dir, current_utc_time.strftime('%Y/%m/%d'))
-    os.makedirs(current_date_dir, exist_ok=True)
-
-    # Plot and save the keogram
-    fig, ax = plt.subplots(figsize=(20, 6))
-    ax.imshow(keogram, aspect='auto', extent=[0, 24*60, 90, -90])
-    ax.set_title(f"Meridian Imaging Svalbard Spectrograph II (KHO/UNIS) {current_utc_time.strftime('%Y-%m-%d')}", fontsize=20)
-
-    # Set x-axis for hours
-    x_ticks = np.arange(0, 24*60, 60)  # Positions for each hour
-    x_labels = [f"{hour}:00" for hour in range(24)]  # Labels for each hour
-    ax.set_xticks(x_ticks)
-    ax.set_xticklabels(x_labels)
-    ax.set_xlabel("Time (UT)")
-
-    #Set y-axis for south, zenith and north
-    y_ticks = np.linspace(-90, 90, num=7)
-    ax.set_yticks(y_ticks)
-    ax.set_yticklabels(['South', '60° S', '30° S', 'Zenith', '30° N', '60° N', '90° N'])
-    ax.set_ylim(-90, 90)
-    ax.set_ylabel("Zenith angle (degrees)")
-
-    # Save the updated keogram
-    keogram_filename = os.path.join(current_date_dir, f'keogram-MISS2-{current_utc_time.strftime("%Y%m%d")}.png')
-    plt.savefig(keogram_filename)
-    plt.close(fig)
-    print(f"Keogram saved: {keogram_filename}")
-
-# Update the keogram every 5 minutes
-def main():
-    while True:  # Start of the infinite loop
-        try:
-            # Get the current UTC time
-            current_utc_time = datetime.now(timezone.utc) 
-
-            # Check if it's time for an update (every 5 minutes)
-            if current_utc_time.minute % 5 == 0:
-                # Continue updating the existing keogram
-                keogram, last_processed_minute = load_existing_keogram(output_dir)  # Unpack the returned values correctly
-
-                # Update the keogram
-                keogram = add_rgb_columns(keogram, rgb_dir_base, last_processed_minute)
-                save_keogram(keogram, output_dir)
-                print("Update completed.")
-            else:
-                print("Waiting for the next update...")
-
-            # Wait for 1 minute before the next check
-            time.sleep(60)
-
-        except Exception as e:
-            print(f"An error occurred: {e}")
-
-if __name__ == "__main__":
-    main()
-
+    time.sleep(60) # One update per minute
