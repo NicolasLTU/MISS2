@@ -68,7 +68,7 @@ except serial.SerialException as e:
                 if ser:
                     SunShield_CLOSE(ser) #Close the SunShield
                 if not image_capture_process:
-                    image_capture_process = subprocess.Popen(["python", "path_to_capture_script.py"])
+                    image_capture_process = subprocess.Popen(["python", r"C:\Users\auroras\.venvMISS2\MISS2\MISS2_Software\capture_Atik.py"])
                     processes.append(image_capture_process)
 
             else:  # Daytime
