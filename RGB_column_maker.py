@@ -1,5 +1,5 @@
 """ 
-This program is designed to constantly look for new PNG files in the RGB_columns directory and produce (300,1,3) PGN-files (8-bit unsigned integer) out of them. Nicolas Martinez (UNIS/LTU) 2024
+This program is designed to constantly look for new PNG files in the averaged PNG directory and produce (300,1,3) PGN-files (8-bit unsigned integer) out of them. Nicolas Martinez (UNIS/LTU) 2024
 
 """
 
@@ -14,17 +14,17 @@ import time
 from datetime import datetime, timezone
 
 
-spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG' # Directory of the PNG (16-bit) images taken by MISS2
+spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG\averaged_PNG' # Directory of the averaged PNG (16-bit) images taken by MISS2
 output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns' # Directory where the 8-bit RGB-columns are saved
 
 # Row where the centre of brightest lines of auroral emission are to be found (to be identified experimentally)
-row_428 = 640 #0.46*1391
-row_558 = 849 #0.61*1391
-row_630 = 1068 #0.768*1391
+row_428 = int(1039 * 0.35) #381 # based on blue channel analysis of the light refracted by the dispersive element of MISS 2 
+row_558 = int(1039 * 0.5) #687 # based on green channel analysis of the light refracted by the dispersive element of MISS 2 
+row_630 = int(1039 * 0.65) #1027 # based on red channel analysis of the light refracted by the dispersive element of MISS 2 
 
 
 # Columns marking the north and south lines of horizon respectively (to be determined experimentally)
-north_column = 1000
+north_column = 500
 south_column = 0
 
 processed_images = set()  # To keep track of processed images
@@ -125,25 +125,26 @@ def create_rgb_columns():
     current_time_UT = datetime.now(timezone.utc)
     current_day = current_time_UT.day #Initialise with current day
 
+     # Construct the current image directory based on the current date
+    spectro_path_dir = os.path.join(spectro_path, current_time_UT.strftime("%Y/%m/%d"))
+
     if current_time_UT.day != current_day:
         processed_images.clear() 
         current_day = current_time_UT.day  # Update the current day
 
-
-    current_day = datetime.now().day  # Initialize with the current day
-    input_folder = os.path.join(spectro_path, current_time_UT.strftime("%Y/%m/%d"))
+    ensure_directory_exists(spectro_path_dir)
+    # Check if the current date directory exists, if not, create it
     output_folder = os.path.join(output_folder_base, current_time_UT.strftime("%Y/%m/%d"))
-    ensure_directory_exists(input_folder)
     ensure_directory_exists(output_folder)
 
-    matching_files = [f for f in os.listdir(input_folder) if f.startswith("MISS2-") and f.endswith(".png") and f <= current_time_UT.strftime("MISS2-%Y%m%d-%H%M%S.png")]
+    matching_files = [f for f in os.listdir(spectro_path_dir) if f.startswith("MISS2-") and f.endswith(".png") and f <= current_time_UT.strftime("MISS2-%Y%m%d-%H%M%S.png")]
 
 
     for filename in matching_files:
         if filename in processed_images:
             continue
 
-        png_file_path = os.path.join(input_folder, filename)
+        png_file_path = os.path.join(spectro_path_dir, filename)
 
         # Check each image's integrity. Skip processing if the image is corrupted.
         if not verify_image_integrity(png_file_path):
@@ -170,3 +171,4 @@ while True:
     create_rgb_columns()
     
     time.sleep(60) # One update per minute
+
