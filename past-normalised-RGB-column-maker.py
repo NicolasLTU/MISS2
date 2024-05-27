@@ -10,7 +10,7 @@ from scipy import signal
 import time
 from datetime import datetime, timezone
 
-spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG\averaged_PNG' # Directory of the PNG (16-bit) images taken by MISS2
+spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG' # Directory of the PNG (16-bit) images taken by MISS2
 output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns' # Directory where the 8-bit RGB-columns are saved
 
 # Row where the centre of brightest lines of auroral emission are to be found (to be identified experimentally)
@@ -107,6 +107,20 @@ def PNG_to_RGB (spectro_data, row_630, row_558, row_428):
     RGB_image= np.dstack((column_RED, column_GREEN, column_BLUE))
     #print("Shape of RGB-column:", RGB_image.shape)
 
+    # Normalize color channels
+    normalized_image = RGB_image.astype(np.float32) / 65535.0  # Assuming the maximum value for 16-bit data is 65535
+
+    # Adjust color channels
+    RGB_image[:, :, 0] = normalized_image[:, :, 0] * 0.4  # Red channel adjustment
+    RGB_image[:, :, 1] = normalized_image[:, :, 1] * 1.2  # Green channel adjustment
+    RGB_image[:, :, 2] = normalized_image[:, :, 2] * 1.0  # Blue channel adjustment
+
+    # Clip values to ensure they are within the valid range [0, 1]
+    RGB_image = np.clip(RGB_image, 0, 1)
+
+    # Scale values back to 8-bit range [0, 255]
+    RGB_image = (RGB_image * 255).astype(np.uint8)
+    
     return RGB_image
 
 def get_user_input_date():

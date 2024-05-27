@@ -74,10 +74,12 @@ def add_rgb_columns(keogram, base_dir, last_processed_minute):
             except Exception as e:
                 print(f"Error processing {filename}: {e}")
 
-    # Fill in missing minutes with black images
-    missing_minutes = set(range(last_processed_minute + 1, current_minute_of_the_day)) - found_minutes
-    for minute in missing_minutes:
-        keogram[:, minute:minute+1, :] = 0  # Black RGB column
+        # Fill in missing minutes with black images for minutes more than 4 minutes before "now"
+        missing_minutes = set(range(last_processed_minute + 1, current_minute_of_the_day)) - found_minutes
+        for minute in missing_minutes:
+            # At the condition that the data-minute is more than 4 minutes away from now to prevent false blanks
+            if current_minute_of_the_day - minute > 4:
+                keogram[:, minute:minute+1, :] = np.zeros((num_pixels_y, 1, 3), dtype=np.uint8) 
 
     return keogram
 
@@ -137,7 +139,7 @@ def save_keogram(keogram, output_dir):
     #Set y-axis for south, zenith and north
     y_ticks = np.linspace(-90, 90, num=7)
     ax.set_yticks(y_ticks)
-    ax.set_yticklabels(['South', '60° S', '30° S', 'Zenith', '30° N', '60° N', '90° N'])
+    ax.set_yticklabels(['90° S', '60° S', '30° S', 'Zenith', '30° N', '60° N', '90° N'])
     ax.set_ylim(-90, 90)
     ax.set_ylabel("Zenith angle (degrees)")
 
@@ -155,7 +157,7 @@ def main():
             current_utc_time = datetime.now(timezone.utc) 
 
             # Check if it's time for an update (every 5 minutes)
-            if current_utc_time.minute % 5 == 0:
+            if current_utc_time.minute % 1 == 0:
                 # Continue updating the existing keogram
                 keogram, last_processed_minute = load_existing_keogram(output_dir)  # Unpack the returned values correctly
 
@@ -174,4 +176,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
