@@ -26,8 +26,8 @@ row_630 = int(405)  # based on red channel analysis of the light refracted by th
 
 
 # Columns marking the north and south lines of horizon respectively (to be determined experimentally)
-north_column = 519
-south_column = 0
+north_column = int(0.78*695)
+south_column = int(0.18*695)
 
 processed_images = set()  # To keep track of processed images
 
@@ -75,7 +75,7 @@ def process_emission_line(spectro_path, emission_row):
     start_row = max(emission_row - 1 , 0)
     end_row = min(emission_row +1, spectro_array.shape[0])
 
-    extracted_rows = spectro_array[start_row:end_row, :]
+    extracted_rows = spectro_array[start_row:end_row, south_column:north_column]
 
     # Process the extracted rows
     processed_rows = process_image(extracted_rows)
@@ -123,8 +123,8 @@ def PNG_to_RGB (spectro_data, row_630, row_558, row_428):
     normalized_image = RGB_image.astype(np.float32) / 65535.0  # Assuming the maximum value for 16-bit data is 65535
 
     # Adjust color channels
-    RGB_image[:, :, 0] = normalized_image[:, :, 0] * 0.4  # Red channel adjustment
-    RGB_image[:, :, 1] = normalized_image[:, :, 1] * 1.2  # Green channel adjustment
+    RGB_image[:, :, 0] = normalized_image[:, :, 0] * 1.0  # Red channel adjustment
+    RGB_image[:, :, 1] = normalized_image[:, :, 1] * 1.0  # Green channel adjustment
     RGB_image[:, :, 2] = normalized_image[:, :, 2] * 1.0  # Blue channel adjustment
 
     # Clip values to ensure they are within the valid range [0, 1]
