@@ -9,7 +9,7 @@ import time
 import serial
 from datetime import datetime
 
-from astronomical_twilight_calculator import it_is_nighttime #Program used to check if the Sun is below -10 degrees of elevation at KHO (Kjell Henriksen Observatory), returns a Boolean
+from night_condition_calculator import it_is_nighttime #Program used to check if the Sun is below -10 degrees of elevation at KHO (Kjell Henriksen Observatory), returns a Boolean
 from sunshield_controller import SunShield_CLOSE, SunShield_OPEN, init_serial #Control of the SunShield shutter: Close, Open, Settings for communication to the Serial Port 'COM3'
 
 
