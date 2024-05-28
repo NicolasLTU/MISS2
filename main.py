@@ -66,7 +66,7 @@ except serial.SerialException as e:
                     is_currently_night = True
                     print ('Daytime: MISS2 is Operational')
                 if ser:
-                    SunShield_CLOSE(ser) #Close the SunShield
+                    SunShield_OPEN(ser) # Open the SunShield
                 if not image_capture_process:
                     image_capture_process = subprocess.Popen(["python", r"C:\Users\auroras\.venvMISS2\MISS2\MISS2_Software\capture_Atik.py"])
                     processes.append(image_capture_process)
