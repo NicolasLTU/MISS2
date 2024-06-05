@@ -19,7 +19,7 @@ raw_PNG_folder = os.path.join(os.path.expanduser("~"), ".venvMISS2/MISS2/Capture
 
 
 camera = AtikSDK.AtikSDKCamera() 
-exposure_duration = 0.005  # Exposure time per image, in seconds
+exposure_duration = 8  # Exposure time per image, in seconds
 optimal_temperature = 0 # Optimal Temperature for cooling
 imaging_cadence = 5 # Capture images every X second
 
