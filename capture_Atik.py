@@ -19,7 +19,7 @@ raw_PNG_folder = os.path.join(os.path.expanduser("~"), ".venvMISS2/MISS2/Capture
 
 
 camera = AtikSDK.AtikSDKCamera() 
-exposure_duration = 8  # Exposure time per image, in seconds
+exposure_duration = 0.05  # Exposure time per image, in seconds
 optimal_temperature = 0 # Optimal Temperature for cooling
 imaging_cadence = 5 # Capture images every X second
 
@@ -66,6 +66,9 @@ def capture_and_save_images(base_folder, camera ):
             # Capture an image with the specified exposure time
             image_array = camera.take_image(exposure_duration)
             uint16_array = image_array.astype(np.uint16)
+
+            # Flip the image vertically if it is saved upside down
+            uint16_array = np.flipud(uint16_array)
 
             # Retrieve the current temperature
             try:
