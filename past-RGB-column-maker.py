@@ -14,9 +14,9 @@ spectro_path = r'C:\Users\auroras\.venvMISS2\MISS2\Captured_PNG\averaged_PNG' # 
 output_folder_base = r'C:\Users\auroras\.venvMISS2\MISS2\RGB_columns' # Directory where the 8-bit RGB-columns are saved
 
 # Row where the centre of brightest lines of auroral emission are to be found (to be identified experimentally)
-row_428 = 381 # based on blue channel analysis of the light refracted by the dispersive element of MISS 2 
+row_428 = 1027 # based on blue channel analysis of the light refracted by the dispersive element of MISS 2 
 row_558 = 687 # based on green channel analysis of the light refracted by the dispersive element of MISS 2 
-row_630 = 1027 # based on red channel analysis of the light refracted by the dispersive element of MISS 2 
+row_630 = 381 # based on red channel analysis of the light refracted by the dispersive element of MISS 2 
 
 processed_images = set()  # To keep track of processed images
 
